@@ -14,6 +14,10 @@ var _mods_loaded : bool = false
 var subwindows : Array[BasicSubWindow] = []
 
 func _process(_delta):
+	
+	# FIXME: Remove this!
+	$DebugMesh.mesh.clear_surfaces()
+	
 	_set_process_order()
 
 func _set_process_order():
@@ -648,7 +652,7 @@ func load_vrm(path) -> bool:
 	var model = $ModelController.get_node_or_null("Model")
 	if model:
 		var secondary_path = NodePath("secondary") #model.vrm_secondary
-		var secondary = model.get_node(secondary_path)
+		var secondary = model.get_node_or_null(secondary_path)
 
 		#if collider_data == null:
 		#	collider_data = []

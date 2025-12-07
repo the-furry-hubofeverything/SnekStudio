@@ -63,6 +63,8 @@ var source_node: Node3D
 var target_node: Node3D
 # Used during the import/export process, but not exposed or saved.
 var source_node_index: int = -1
+# @kiri
+var target_node_index: int = -1
 var source_bone: int = -1
 var target_bone: int = -1
 
@@ -107,6 +109,101 @@ func evaluate() -> void:
 func evaluate_aim() -> void:
 	if source_node == null or target_node == null:
 		return
+
+	var axisVec : Vector3 = Vector3(1.0, 0.0, 0.0)
+	match aim_or_roll_axis:
+		AimRollAxis.POSITIVE_X: axisVec = Vector3( 1.0,  0.0,  0.0)
+		AimRollAxis.POSITIVE_Y: axisVec = Vector3( 0.0,  1.0,  0.0)
+		AimRollAxis.POSITIVE_Z: axisVec = Vector3( 0.0,  0.0,  1.0)
+		AimRollAxis.NEGATIVE_X: axisVec = Vector3(-1.0,  0.0,  0.0)
+		# FIXME: Check to see if we have to invert Z.
+		AimRollAxis.NEGATIVE_Y: axisVec = Vector3( 0.0, -1.0,  0.0)
+		AimRollAxis.NEGATIVE_Z: axisVec = Vector3( 0.0,  0.0, -1.0)
+#
+	#if aim_or_roll_axis == AimRollAxis.NEGATIVE_X:
+		#axisVec = Vector3(0.0, 1.0, 0.0)
+	#elif aim_or_roll_axis == AimRollAxis.POSITIVE_X:
+		#axisVec = Vector3(0.0, 1.0, 0.0)
+	#else:
+		#axisVec = Vector3(0.0, 1.0, 0.0)
+
+	#print(axisVec)
+	
+	#axisVec = Vector3(0.0, 0.0, 0.0)
+
+
+	#print(aim_or_roll_axis)
+
+	var target_skel : Skeleton3D = target_node
+	#print("KIRI: target bone rest: ", target_skel.get_bone_global_rest(target_bone).basis.get_rotation_quaternion())
+
+	var dstParentWorldQuat : Quaternion = target_skel.get_bone_global_pose(target_skel.get_bone_parent(target_bone)).basis.get_rotation_quaternion()
+	var dstParentWorldRestQuat : Quaternion = target_skel.get_bone_global_rest(target_skel.get_bone_parent(target_bone)).basis.get_rotation_quaternion()
+	var dstRestQuat : Quaternion = target_skel.get_bone_rest(target_bone).basis.get_rotation_quaternion()
+	#var dstRestQuat : Quaternion = Quaternion(0.0, 0.0, 0.0, 1.0)
+	#print("KIRI: ", dstRestQuat)
+	#axisVec = dstParentWorldQuat.inverse() * axisVec
+	var dstWorldPos : Vector3 = target_skel.get_bone_global_pose(target_bone).origin
+	var srcWorldPos : Vector3 = source_node.get_bone_global_pose(source_bone).origin
+	#print(dstWorldPos)
+
+	#print(dstParentWorldRestQuat)
+	var fromVec : Vector3 = dstParentWorldQuat * dstParentWorldRestQuat.inverse() * dstRestQuat * axisVec # world space
+	var toVec : Vector3 = (srcWorldPos - dstWorldPos).normalized() # world space
+	var fromToQuat : Quaternion = Quaternion(fromVec, toVec) # world space
+	
+	
+	#print("KIRI: srcWorldPos ", target_skel.get_bone_name(source_bone), ": ", srcWorldPos)
+	#print("KIRI: dstWorldPos ", target_skel.get_bone_name(target_bone), ": ", dstWorldPos)
+	
+	#var targetQuat : Quaternion = dstRestQuat.slerp(
+	#	fromToQuat,
+	#	#dstParentWorldQuat.inverse() * fromToQuat * dstParentWorldQuat * dstRestQuat,
+	#	weight)
+		
+	#targetQuat.x *= -1.0
+	#targetQuat.y *= -1.0
+	
+	
+	
+	var debug_mesh_root1 = target_skel.get_tree().root
+
+	var debug_mesh_node : MeshInstance3D = target_skel.get_tree().root.get_node("SnekStudio_Main/DebugMesh")
+	var debug_mesh : ImmediateMesh = debug_mesh_node.mesh
+	debug_mesh.surface_begin(Mesh.PRIMITIVE_LINES)
+	#debug_mesh.surface_add_vertex(Vector3(randf(), randf(), randf()))
+	#debug_mesh.surface_add_vertex(Vector3(randf(), randf(), randf()))
+	
+	debug_mesh.surface_add_vertex(dstWorldPos)
+	debug_mesh.surface_add_vertex(dstWorldPos + fromVec)
+
+	debug_mesh.surface_add_vertex(dstWorldPos)
+	debug_mesh.surface_add_vertex(dstWorldPos + toVec)
+	
+	
+	debug_mesh.surface_add_vertex(dstWorldPos)
+	debug_mesh.surface_add_vertex(dstWorldPos + fromToQuat.slerp(Quaternion(), randf()) * fromVec)
+	
+	debug_mesh.surface_end()
+	
+	debug_mesh_node.global_transform = target_skel.global_transform
+	
+	
+
+	#var final_world_pose  : Transform3D = Transform3D(Basis(dstParentWorldRestQuat.inverse() * fromToQuat))
+	#final_world_pose.origin = target_skel.get_bone_global_pose(target_bone).origin
+	#target_skel.set_bone_global_pose(target_bone, final_world_pose)
+	
+	# FIXME: Add weight
+	target_skel.set_bone_pose_rotation(target_bone,
+		dstParentWorldQuat.inverse() * fromToQuat * dstParentWorldQuat * dstRestQuat)
+	#var final_world_pose  : Transform3D = target_skel.get_bone_global_rest(target_bone) * Transform3D(Basis(fromToQuat));
+	#var final_world_pose  : Transform3D = Transform3D(Basis(fromToQuat));
+	#final_world_pose.origin = target_skel.get_bone_global_pose(target_bone).origin
+	#target_skel.set_bone_global_pose(
+	#	target_bone, final_world_pose)
+	return
+
 	var source_global_transform: Transform3D = _get_source_global_transform() # * source_node.get_bone_pose(source_bone).affine_inverse() * Transform3D(source_node.get_bone_rest(source_bone).basis, Vector3())
 	var target_global_transform: Transform3D = _get_target_global_transform() * target_node.get_bone_pose(target_bone).affine_inverse() # * Transform3D(target_node.get_bone_rest(target_bone).basis, Vector3())
 	var target_rest_transform: Transform3D = target_node.get_bone_rest(target_bone) # .basis.get_rotation_quaternion()
@@ -177,6 +274,13 @@ static func from_dictionary(dict: Dictionary):  # -> BoneNodeConstraint:
 	var constraint_parameters: Dictionary = constraint_dict[constraint_type_string]
 	ret.weight = constraint_dict.get("weight", 1.0)
 	ret.source_node_index = constraint_parameters["source"]
+
+	# @kiri
+	if "target" in constraint_parameters:
+		ret.target_node_index = constraint_parameters["target"]
+		print("GOT TARGET: ", ret.target_node_index)
+	#assert(false)
+
 	assert(ret.source_node_index >= 0)
 	# Set up the aim or roll axis.
 	if ret.constraint_type == ConstraintType.AIM:

@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3 uid="uid://bst148ok43uyo"]
+[gd_scene load_steps=12 format=3 uid="uid://bst148ok43uyo"]
 
 [ext_resource type="Script" uid="uid://cfw605s4nxgam" path="res://Core/Main.gd" id="1_88riu"]
 [ext_resource type="PackedScene" uid="uid://dqrb5gghpk1iu" path="res://Core/UI/UI_Root.tscn" id="2_a0eek"]
@@ -24,6 +24,8 @@ ambient_light_color = Color(1, 1, 1, 1)
 reflected_light_source = 1
 
 [sub_resource type="AudioStreamMicrophone" id="AudioStreamMicrophone_djr57"]
+
+[sub_resource type="ImmediateMesh" id="ImmediateMesh_mmo8m"]
 
 [node name="SnekStudio_Main" type="Node3D"]
 script = ExtResource("1_88riu")
@@ -65,3 +67,6 @@ environment = SubResource("Environment_w4pqy")
 stream = SubResource("AudioStreamMicrophone_djr57")
 bus = &"Record"
 script = ExtResource("10_dpnxj")
+
+[node name="DebugMesh" type="MeshInstance3D" parent="."]
+mesh = SubResource("ImmediateMesh_mmo8m")

@@ -384,6 +384,27 @@ func _create_animation_player(animplayer: AnimationPlayer, vrm_extension: Dictio
 		var gltfnode: GLTFNode = nodes[i]
 		var mesh_idx: int = gltfnode.mesh
 		if mesh_idx != -1:
+
+			# Build a list of every node to search through.
+			# FIXME: Limit it to just root nodes!
+			var nodes_to_search : Array = []
+			for k in range(nodes.size()):
+				var node: Node = gstate.get_scene_node(k)
+				assert(node)
+				nodes_to_search.append(node)
+
+			var gltfmesh: GLTFMesh = gstate.get_meshes()[mesh_idx]
+
+			# FIXME: Will do redundant searches.
+			while nodes_to_search.size():
+				var node: Node = nodes_to_search.pop_back()
+				if node is ImporterMeshInstance3D:
+					if node.mesh == gltfmesh.mesh:
+						mesh_idx_to_meshinstance[mesh_idx] = node
+						break
+				for child in node.get_children():
+					nodes_to_search.append(child)
+
 			var scenenode: ImporterMeshInstance3D = gstate.get_scene_node(i)
 			mesh_idx_to_meshinstance[mesh_idx] = scenenode
 
@@ -952,6 +973,9 @@ func _export_post(gstate: GLTFState) -> Error:
 
 
 func _import_preflight(gstate: GLTFState, extensions: PackedStringArray = PackedStringArray()) -> Error:
+	
+	print("VRMC_vrm.gd _import_preflight")
+	
 	if not extensions.has("VRMC_vrm"):
 		return ERR_SKIP
 	if typeof(gstate.get_additional_data(&"vrm/already_processed")) != TYPE_NIL:
@@ -983,6 +1007,13 @@ func _import_post_parse(state: GLTFState) -> Error:
 
 
 func _import_post(gstate: GLTFState, node: Node) -> Error:
+
+	print("VRMC_vrm.gd _import_post")
+
+	var nodes = gstate.nodes
+	for nodeindex in range(len(nodes)):
+		print(nodeindex, nodes[nodeindex])
+
 	var root_node: Node = node
 
 	var gltf_json: Dictionary = gstate.json

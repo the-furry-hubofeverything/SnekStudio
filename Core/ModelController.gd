@@ -1,6 +1,8 @@
 extends Node3D
 class_name ModelController
 
+const vrm_constants = preload("res://addons/godot-vrm/vrm_constants.gd")
+
 var _last_loaded_vrm = ""
 
 func _set_lod_bias_recursively(node):
@@ -29,17 +31,51 @@ func load_vrm(path) -> Node3D:
 		push_error("Failed to load ", path, ": file does not exist.")
 		return null
 
+
+	var extension_paths : PackedStringArray = [
+		"res://addons/godot-vrm/1.0/VRMC_vrm.gd",
+		"res://addons/godot-vrm/1.0/VRMC_node_constraint.gd",
+		"res://addons/godot-vrm/1.0/VRMC_springBone.gd",
+		"res://addons/godot-vrm/1.0/VRMC_materials_hdr_emissiveMultiplier.gd",
+		"res://addons/godot-vrm/1.0/VRMC_materials_mtoon.gd"
+	]
+	extension_paths.reverse()
+
+	var extensions : Array = []
+
+	for extension_path in extension_paths:
+		var extension = load(extension_path).new()
+		assert(extension != null)
+		print("Adding extension: ", extension)
+		GLTFDocument.register_gltf_document_extension(extension, true)
+		extensions.append(extension)
+
 	# Attempt to load file.
 	# FIXME: Determine of the flags used are still needed. Remove them if not.
 	var gltf: GLTFDocument = GLTFDocument.new()
 	var vrm_extension: GLTFDocumentExtension = load("res://addons/godot-vrm/vrm_extension.gd").new()
 	GLTFDocument.register_gltf_document_extension(vrm_extension, true)
+
 	var state: GLTFState = GLTFState.new()
 	state.handle_binary_image = GLTFState.HANDLE_BINARY_EMBED_AS_UNCOMPRESSED
-	var err = gltf.append_from_file(path, state,
-		16 | #EditorSceneFormatImporter.IMPORT_USE_NAMED_SKIN_BINDS | 
-		8 | #EditorSceneFormatImporter.IMPORT_GENERATE_TANGENT_ARRAYS |
-		2) #EditorSceneFormatImporter.IMPORT_ANIMATION) #16 #EditorSceneFormatImporter.IMPORT_USE_NAMED_SKIN_BINDS)
+
+	var options : Dictionary = {}
+	state.set_additional_data(&"vrm/head_hiding_method", vrm_constants.HeadHidingSetting.IgnoreHeadHiding as vrm_constants.HeadHidingSetting)
+	state.set_additional_data(&"vrm/first_person_layers", options.get(&"vrm/only_if_head_hiding_uses_layers/first_person_layers", 2) as int)
+	state.set_additional_data(&"vrm/third_person_layers", options.get(&"vrm/only_if_head_hiding_uses_layers/third_person_layers", 4) as int)
+	# HANDLE_BINARY_EMBED_AS_BASISU crashes on some files in 4.0 and 4.1
+	state.handle_binary_image = GLTFState.HANDLE_BINARY_EMBED_AS_UNCOMPRESSED  # GLTFState.HANDLE_BINARY_EXTRACT_TEXTURES
+
+	var flags = 1 | 16 | 8 | 2
+		# 1  EditorSceneFormatImporter.IMPORT_SCENE
+		# 2  EditorSceneFormatImporter.IMPORT_ANIMATION) #16 #EditorSceneFormatImporter.IMPORT_USE_NAMED_SKIN_BINDS)
+		# 8  EditorSceneFormatImporter.IMPORT_GENERATE_TANGENT_ARRAYS |
+		# 16 EditorSceneFormatImporter.IMPORT_USE_NAMED_SKIN_BINDS
+
+	print("FLAGS: ", flags)
+	print("EXTENSIONS: ", GLTFDocument.get_supported_gltf_extensions())
+	
+	var err = gltf.append_from_file(path, state, flags)
 
 	var generated_scene = null
 	if err == OK:
@@ -62,6 +98,11 @@ func load_vrm(path) -> Node3D:
 	# Cleanup.
 	GLTFDocument.unregister_gltf_document_extension(vrm_extension)
 
+	for extension in extensions:
+		print("Removing extension: ", extension)
+		assert(extension != null)
+		GLTFDocument.unregister_gltf_document_extension(extension)
+
 	# Fixup.
 	_set_lod_bias_recursively(self)
 
@@ -80,7 +121,7 @@ func get_skeleton() -> Skeleton3D:
 		return null
 
 	# Try to find the skeleton on the secondary object first.
-	var secondary = $Model.get_node("secondary")
+	var secondary = $Model.get_node_or_null("secondary")
 	if secondary:
 		if secondary is VRMSecondary:
 			var skeleton2 : Skeleton3D = secondary.get_node(secondary.skeleton)
@@ -153,8 +194,9 @@ func reset_skeleton_to_rest_pose() -> void:
 ## Reset all the blend shapes to their neutral state.
 func reset_blend_shapes() -> void:
 	var anim_player : AnimationPlayer = $Model.find_child("AnimationPlayer", false, false)
-
+	
 	# FIXME: This is having issues in 4.4.
-	anim_player.play("RESET")
-	anim_player.advance(0)
-	anim_player.stop()
+	if anim_player:
+		anim_player.play("RESET")
+		anim_player.advance(0)
+		anim_player.stop()
