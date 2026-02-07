@@ -14,6 +14,8 @@ var _mod_log : Array = []
 
 const defaults_text_get_rid_of_me = "\u27F2"
 
+@export var icon: Texture2D = null
+
 # -----------------------------------------------------------------------------
 # Virtual functions
 
